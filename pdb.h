@@ -3368,8 +3368,14 @@ namespace pdb
 		TArray<MemberEntry> members;
 		uint32_t memberNum = 0;
 		uint64_t index = 0;
+		uint64_t hash = 0;
 		bool hasVirtualBases = false;
 	};
+
+	bool operator==(const StructureEntry& a, const StructureEntry& b)
+	{
+		return a.hash == b.hash;
+	}
 
 	struct StringHasher
 	{
@@ -3674,6 +3680,8 @@ namespace pdb
 	{
 		std::unordered_map<String, uint64_t, StringHasher, StringEqual> classNameOffset;
 
+		LOG("Generating Table");
+
 		for (uint64_t index = 0; index < typeRecords.getNum(); ++index)
 		{
 			const TypeRecord& record = typeRecords[index];
@@ -3738,7 +3746,8 @@ namespace pdb
 						entry.lineNumber = srcEntry.lineNumber;
 					}
 
-					output.add(entry);
+					entry.hash = hash::hash(entry.name);
+					output.addUnique(entry);
 				}
 			}
 			else if (record.leaf.type == ELeafType::LEAF_TYPE_UNION && !record.leaf.union_.propertyField.bIsForwardRef)
@@ -3779,7 +3788,8 @@ namespace pdb
 						entry.filePath = IPIStringTable::get().get(srcEntry.srcFileIndex);
 						entry.lineNumber = srcEntry.lineNumber;
 					}
-					output.add(entry);
+					entry.hash = hash::hash(entry.name);
+					output.addUnique(entry);
 				}
 			}
 		}
@@ -3812,6 +3822,7 @@ namespace pdb
 #undef max
 #undef min
 
+		LOG("Calculating Padding");
 		// Add Padding
 		for (StructureEntry& entry : output)
 		{

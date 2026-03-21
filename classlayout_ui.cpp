@@ -186,6 +186,7 @@ int main()
 	char searchBuffer[256] = {};
 	TArray<pdb::StructureEntry*> filteredResults;
 	bool searchDirty = true;
+	int32_t cacheLineIndex = 0;
 
 	do
 	{
@@ -219,8 +220,8 @@ int main()
 
 					ImGui::SameLine();
 					ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical, 2.0f);
-
 					ImGui::SameLine();
+
 					if (ImGui::Button("Export CSV"))
 					{
 						WString suggestedName = L"classlayout.csv";
@@ -231,6 +232,42 @@ int main()
 							file::writeFile(str::toString(outputPath), *csv, csv.length());
 						}
 					}
+
+					ImGui::SameLine();
+					ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical, 2.0f);
+					ImGui::SameLine();
+
+					const char* cacheLines[] =
+					{
+						"None",
+						"32 bytes",
+						"64 bytes",
+						"128 bytes",
+						"256 bytes"
+					};
+
+					const int32_t cacheLineSize[] =
+					{
+						0,
+						32,
+						64,
+						128,
+						256
+					};
+
+					const ImU32 cacheLineColors[] = {
+						IM_COL32(50,  80,  120, 100),
+						IM_COL32(80,  120, 50,  100),
+						IM_COL32(120, 80,  50,  100),
+						IM_COL32(100, 50,  120, 100),
+						IM_COL32(50,  120, 120, 100),
+						IM_COL32(120, 50,  80,  100)
+					};
+					const int32_t numCacheLineColors = IM_ARRAYSIZE(cacheLineColors);
+
+					ImGui::SetNextItemWidth(-1);
+					ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.2f);
+					ImGui::Combo("L1 Cache Line Size", &cacheLineIndex, cacheLines, IM_ARRAYSIZE(cacheLines));
 
 					if (searchDirty)
 					{
@@ -506,15 +543,15 @@ int main()
 
 								ImGui::Separator();
 
-								if (ImGui::BeginTable("ClassProps", 5, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Hideable))
+								if (ImGui::BeginTable("ClassProps", 6, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Hideable))
 								{
 									ImGui::TableSetupScrollFreeze(0, 1);
 									ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_None, 100.0f);
 									ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_None, 100.0f);
 									ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_None, 50.0f);
 									ImGui::TableSetupColumn("Offset", ImGuiTableColumnFlags_None, 50.0f);
-									//ImGui::TableSetupColumn("Access", ImGuiTableColumnFlags_None, 100.0f);
 									ImGui::TableSetupColumn("BaseClass", ImGuiTableColumnFlags_None, 100.0f);
+									ImGui::TableSetupColumn("Cache Line", ImGuiTableColumnFlags_None, 70.0f);
 									ImGui::TableHeadersRow();
 
 									ImGuiListClipper clipper;
@@ -530,6 +567,21 @@ int main()
 											if (member.isPadding)
 											{
 												ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(100, 50, 50, 255));
+											}
+											else if (cacheLineSize[cacheLineIndex] > 0 && member.size > 0)
+											{
+												int32_t lineStart = member.offset / cacheLineSize[cacheLineIndex];
+												int32_t lineEnd = (member.offset + member.size - 1) / cacheLineSize[cacheLineIndex];
+
+												if (lineStart != lineEnd)
+												{
+													ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(180, 140, 0, 150));
+												}
+												else
+												{
+													ImU32 color = cacheLineColors[lineStart % numCacheLineColors];
+													ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, color);
+												}
 											}
 
 											ImGui::TableSetColumnIndex(0);
@@ -553,6 +605,26 @@ int main()
 											{
 												selectedStructStack.add(selectedStruct);
 												selectedStruct = (int32_t)member.baseClassIndex;
+											}
+
+											ImGui::TableSetColumnIndex(5);
+											if (cacheLineSize[cacheLineIndex] > 0 && !member.isPadding && member.size > 0)
+											{
+												int32_t lineStart = member.offset / cacheLineSize[cacheLineIndex];
+												int32_t lineEnd = (member.offset + member.size - 1) / cacheLineSize[cacheLineIndex];
+
+												if (lineStart != lineEnd)
+												{
+													ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "[%d, %d]", lineStart, lineEnd);
+												}
+												else
+												{
+													ImGui::Text("%d", lineStart);
+												}
+											}
+											else
+											{
+												ImGui::Text("-");
 											}
 										}
 									}
