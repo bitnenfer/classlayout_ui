@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36603.0 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "classlayout_ui", "classlayout_ui.vcxproj", "{04D66A88-CDBE-4F19-B432-D574954F766E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{04D66A88-CDBE-4F19-B432-D574954F766E}.Debug|x64.ActiveCfg = Debug|x64
+		{04D66A88-CDBE-4F19-B432-D574954F766E}.Debug|x64.Build.0 = Debug|x64
+		{04D66A88-CDBE-4F19-B432-D574954F766E}.Release|x64.ActiveCfg = Release|x64
+		{04D66A88-CDBE-4F19-B432-D574954F766E}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9A965623-A3FC-4C39-8885-B61F3C2E1789}
+	EndGlobalSection
+EndGlobal
