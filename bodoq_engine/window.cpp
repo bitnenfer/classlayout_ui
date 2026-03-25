@@ -105,6 +105,9 @@ Window* win::createWindow(const char* title, int32_t x, int32_t y, int32_t width
         SetWindowPos(windowHandle, HWND_TOP, posX, posY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
         ShowWindow(windowHandle, SW_SHOWMAXIMIZED);
         UpdateWindow(windowHandle);
+
+        width = windowWidth;
+        height = windowHeight;
     }
 
     if (!windowHandle)
