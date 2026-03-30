@@ -95,6 +95,11 @@ void hyperlink(const char* label, const char* url)
 	}
 }
 
+void renderMemoryLayout(pdb::StructureEntry& entry, int32_t selectedCacheLineSize)
+{
+	
+}
+
 #include "resource.h"
 
 int main()
@@ -464,7 +469,7 @@ int main()
 									}
 								}
 
-								const pdb::StructureEntry& selectedEntry = results[(uint64_t)selectedStruct];
+								pdb::StructureEntry& selectedEntry = results[(uint64_t)selectedStruct];
 
 								ImGui::Text("Name: ");
 								ImGui::SameLine();
@@ -543,95 +548,333 @@ int main()
 
 								ImGui::Separator();
 
-								if (ImGui::BeginTable("ClassProps", 6, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Hideable))
+								if (ImGui::BeginTabBar("Display"))
 								{
-									ImGui::TableSetupScrollFreeze(0, 1);
-									ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_None, 100.0f);
-									ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_None, 100.0f);
-									ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_None, 50.0f);
-									ImGui::TableSetupColumn("Offset", ImGuiTableColumnFlags_None, 50.0f);
-									ImGui::TableSetupColumn("BaseClass", ImGuiTableColumnFlags_None, 100.0f);
-									ImGui::TableSetupColumn("Cache Line", ImGuiTableColumnFlags_None, 70.0f);
-									ImGui::TableHeadersRow();
-
-									ImGuiListClipper clipper;
-									clipper.Begin((int)selectedEntry.members.getNum());
-									while (clipper.Step())
+									if (ImGui::BeginTabItem("Table"))
 									{
-										for (uint32_t row = clipper.DisplayStart; row < (uint32_t)clipper.DisplayEnd; row++)
+										if (ImGui::BeginTable("ClassProps", 6, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Hideable))
 										{
-											ImGui::TableNextRow();
+											ImGui::TableSetupScrollFreeze(0, 1);
+											ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_None, 100.0f);
+											ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_None, 100.0f);
+											ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_None, 50.0f);
+											ImGui::TableSetupColumn("Offset", ImGuiTableColumnFlags_None, 50.0f);
+											ImGui::TableSetupColumn("BaseClass", ImGuiTableColumnFlags_None, 100.0f);
+											ImGui::TableSetupColumn("Cache Line", ImGuiTableColumnFlags_None, 70.0f);
+											ImGui::TableHeadersRow();
 
-											const pdb::MemberEntry& member = selectedEntry.members[row];
-
-											if (member.isPadding)
+											ImGuiListClipper clipper;
+											clipper.Begin((int)selectedEntry.members.getNum());
+											while (clipper.Step())
 											{
-												ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(100, 50, 50, 255));
-											}
-											else if (cacheLineSize[cacheLineIndex] > 0 && member.size > 0)
-											{
-												int32_t lineStart = member.offset / cacheLineSize[cacheLineIndex];
-												int32_t lineEnd = (member.offset + member.size - 1) / cacheLineSize[cacheLineIndex];
-
-												if (lineStart != lineEnd)
+												for (uint32_t row = clipper.DisplayStart; row < (uint32_t)clipper.DisplayEnd; row++)
 												{
-													ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(180, 140, 0, 150));
+													ImGui::TableNextRow();
+
+													const pdb::MemberEntry& member = selectedEntry.members[row];
+
+													if (member.isPadding)
+													{
+														ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(100, 50, 50, 255));
+													}
+													else if (cacheLineSize[cacheLineIndex] > 0 && member.size > 0)
+													{
+														int32_t lineStart = member.offset / cacheLineSize[cacheLineIndex];
+														int32_t lineEnd = (member.offset + member.size - 1) / cacheLineSize[cacheLineIndex];
+
+														if (lineStart != lineEnd)
+														{
+															ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(180, 140, 0, 150));
+														}
+														else
+														{
+															ImU32 color = cacheLineColors[lineStart % numCacheLineColors];
+															ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, color);
+														}
+													}
+
+													ImGui::TableSetColumnIndex(0);
+													ImGui::Selectable(*member.name);
+
+													ImGui::TableSetColumnIndex(1);
+													if (ImGui::Selectable(str::format("%s##%u", *member.type, row)) && member.typeIndex > -1)
+													{
+														selectedStructStack.add(selectedStruct);
+														selectedStruct = (int32_t)member.typeIndex;
+													}
+
+													ImGui::TableSetColumnIndex(2);
+													ImGui::Selectable(*str::format("%u", member.size));
+
+													ImGui::TableSetColumnIndex(3);
+													ImGui::Selectable(*str::format("%u", member.offset));
+
+													ImGui::TableSetColumnIndex(4);
+													if (ImGui::Selectable(str::format("%s##%u", *member.baseClass, row)) && member.baseClassIndex > -1)
+													{
+														selectedStructStack.add(selectedStruct);
+														selectedStruct = (int32_t)member.baseClassIndex;
+													}
+
+													ImGui::TableSetColumnIndex(5);
+													if (cacheLineSize[cacheLineIndex] > 0 && !member.isPadding && member.size > 0)
+													{
+														int32_t lineStart = member.offset / cacheLineSize[cacheLineIndex];
+														int32_t lineEnd = (member.offset + member.size - 1) / cacheLineSize[cacheLineIndex];
+
+														if (lineStart != lineEnd)
+														{
+															ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "[%d, %d]", lineStart, lineEnd);
+														}
+														else
+														{
+															ImGui::Text("%d", lineStart);
+														}
+													}
+													else
+													{
+														ImGui::Text("-");
+													}
 												}
-												else
-												{
-													ImU32 color = cacheLineColors[lineStart % numCacheLineColors];
-													ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, color);
-												}
 											}
 
-											ImGui::TableSetColumnIndex(0);
-											ImGui::Selectable(*member.name);
-
-											ImGui::TableSetColumnIndex(1);
-											if (ImGui::Selectable(str::format("%s##%u", *member.type, row)) && member.typeIndex > -1)
-											{
-												selectedStructStack.add(selectedStruct);
-												selectedStruct = (int32_t)member.typeIndex;
-											}
-
-											ImGui::TableSetColumnIndex(2);
-											ImGui::Selectable(*str::format("%u", member.size));
-
-											ImGui::TableSetColumnIndex(3);
-											ImGui::Selectable(*str::format("%u", member.offset));
-
-											ImGui::TableSetColumnIndex(4);
-											if (ImGui::Selectable(str::format("%s##%u", *member.baseClass, row)) && member.baseClassIndex > -1)
-											{
-												selectedStructStack.add(selectedStruct);
-												selectedStruct = (int32_t)member.baseClassIndex;
-											}
-
-											ImGui::TableSetColumnIndex(5);
-											if (cacheLineSize[cacheLineIndex] > 0 && !member.isPadding && member.size > 0)
-											{
-												int32_t lineStart = member.offset / cacheLineSize[cacheLineIndex];
-												int32_t lineEnd = (member.offset + member.size - 1) / cacheLineSize[cacheLineIndex];
-
-												if (lineStart != lineEnd)
-												{
-													ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "[%d, %d]", lineStart, lineEnd);
-												}
-												else
-												{
-													ImGui::Text("%d", lineStart);
-												}
-											}
-											else
-											{
-												ImGui::Text("-");
-											}
+											ImGui::EndTable();
 										}
+
+										ImGui::EndTabItem();
 									}
 
-									ImGui::EndTable();
+									if (ImGui::BeginTabItem("Memory Layout"))
+									{
+										const int32_t selectedCacheLineSize = cacheLineSize[cacheLineIndex];
+										if (selectedEntry.alignment == -1)
+										{
+											uint32_t inferredAlignment = 1;
+											for (const pdb::MemberEntry& member : selectedEntry.members)
+											{
+												if (member.isPadding || member.isVirtualBase || member.size == 0)
+													continue;
+												if (member.offset > 0)
+												{
+													uint32_t offsetAlign = member.offset & (uint32_t)(-(int32_t)member.offset);
+													if (offsetAlign > inferredAlignment)
+														inferredAlignment = offsetAlign;
+												}
+												uint32_t sizeAlign = 1u << (31 - __lzcnt(member.size));
+												if (sizeAlign > inferredAlignment)
+													inferredAlignment = sizeAlign;
+											}
+											selectedEntry.alignment = math::min(inferredAlignment, 64u);
+										}
+
+										const float rowHeight = 24.0f;
+										const float cellWidth = 8.0f;
+										const float labelWidth = 60.0f;
+										const float totalWidth = ImGui::GetContentRegionAvail().x;
+										const float layoutWidth = totalWidth - labelWidth;
+
+										if (selectedEntry.size == 0) return;
+
+										float maxBytesPerRow = floorf(layoutWidth / cellWidth);
+										float actualBytesPerRow = (float)selectedEntry.alignment;
+										if (actualBytesPerRow < 8.0f) actualBytesPerRow = 8.0f;
+										if (selectedCacheLineSize > 0 && (float)selectedCacheLineSize <= maxBytesPerRow)
+										{
+											actualBytesPerRow = (float)selectedCacheLineSize;
+										}
+										else
+										{
+											while (actualBytesPerRow * 2.0f <= maxBytesPerRow)
+											{
+												actualBytesPerRow *= 2.0f;
+											}
+										}
+										if (actualBytesPerRow > maxBytesPerRow)
+										{
+											actualBytesPerRow = maxBytesPerRow;
+										}
+
+										uint32_t totalRows = (uint32_t)ceilf((float)selectedEntry.size / actualBytesPerRow);
+										float totalHeight = totalRows * rowHeight + rowHeight;
+										ImDrawList* drawList = ImGui::GetWindowDrawList();
+										ImVec2 cursor = ImGui::GetCursorScreenPos();
+										ImGui::Dummy(ImVec2(totalWidth, totalHeight));
+
+										{
+											ImVec2 headerPos = cursor;
+											drawList->AddRectFilled(headerPos, ImVec2(headerPos.x + labelWidth, headerPos.y + rowHeight), IM_COL32(40, 40, 40, 255));
+											drawList->AddText(ImVec2(headerPos.x + 4, headerPos.y + 4), IM_COL32(180, 180, 180, 255), "Offset");
+											for (uint32_t b = 0; b < (uint32_t)actualBytesPerRow; ++b)
+											{
+												float x = cursor.x + labelWidth + b * cellWidth;
+												if (b % 8 == 0)
+												{
+													char label[8];
+													snprintf(label, sizeof(label), "+%u", b);
+													drawList->AddText(ImVec2(x + 1, cursor.y + 4), IM_COL32(120, 120, 120, 255), label);
+												}
+												drawList->AddLine(ImVec2(x, cursor.y + rowHeight - 4), ImVec2(x, cursor.y + rowHeight), IM_COL32(80, 80, 80, 255), 1.0f);
+											}
+											cursor.y += rowHeight;
+										}
+
+										TArray<int32_t> byteMap;
+										byteMap.resize(selectedEntry.size);
+										for (uint32_t i = 0; i < selectedEntry.size; ++i)
+											byteMap[i] = -1;
+
+										for (uint32_t m = 0; m < selectedEntry.members.getNum(); ++m)
+										{
+											const pdb::MemberEntry& member = selectedEntry.members[m];
+											if (member.isVirtualBase) continue;
+											uint32_t end = member.offset + member.size;
+											if (end > selectedEntry.size) end = selectedEntry.size;
+											for (uint32_t b = member.offset; b < end; ++b)
+												byteMap[b] = (int32_t)m;
+										}
+
+										auto getMemberColor = [&](int32_t memberIndex, bool isPadding) -> ImU32
+										{
+											if (isPadding) return IM_COL32(140, 60, 60, 220);
+											if (memberIndex < 0) return IM_COL32(60, 60, 60, 200);
+											const ImU32 colors[] = {
+												IM_COL32(60,  100, 160, 220),
+												IM_COL32(60,  140, 80,  220),
+												IM_COL32(160, 100, 60,  220),
+												IM_COL32(120, 60,  160, 220),
+												IM_COL32(60,  140, 140, 220),
+												IM_COL32(160, 60,  100, 220),
+											};
+											return colors[memberIndex % IM_ARRAYSIZE(colors)];
+										};
+
+										for (uint32_t row = 0; row < totalRows; ++row)
+										{
+											uint32_t rowStartByte = (uint32_t)(row * actualBytesPerRow);
+											uint32_t rowEndByte = (uint32_t)math::min((float)(rowStartByte + actualBytesPerRow), (float)selectedEntry.size);
+											ImVec2 rowStart = cursor;
+
+											if (!ImGui::IsRectVisible(rowStart, ImVec2(rowStart.x + totalWidth, rowStart.y + rowHeight)))
+											{
+												cursor.y += rowHeight;
+												continue;
+											}
+
+											char offsetLabel[16];
+											snprintf(offsetLabel, sizeof(offsetLabel), "%u", rowStartByte);
+											drawList->AddRectFilled(rowStart, ImVec2(rowStart.x + labelWidth, rowStart.y + rowHeight), IM_COL32(35, 35, 35, 255));
+											drawList->AddText(ImVec2(rowStart.x + 4, rowStart.y + (rowHeight - ImGui::GetTextLineHeight()) * 0.5f), IM_COL32(150, 150, 150, 255), offsetLabel);
+
+											if (selectedCacheLineSize > 0)
+											{
+												const ImU32 cacheLineBands[] = { IM_COL32(255, 255, 255, 8), IM_COL32(255, 255, 255, 0) };
+												for (uint32_t b = rowStartByte; b < rowEndByte; ++b)
+												{
+													int32_t cacheLine = b / selectedCacheLineSize;
+													float x = rowStart.x + labelWidth + (b - rowStartByte) * cellWidth;
+													drawList->AddRectFilled(ImVec2(x, rowStart.y), ImVec2(x + cellWidth, rowStart.y + rowHeight), cacheLineBands[cacheLine % 2]);
+												}
+											}
+
+											uint32_t b = rowStartByte;
+											while (b < rowEndByte)
+											{
+												int32_t memberIdx = byteMap[b];
+												bool isPadding = memberIdx >= 0 && selectedEntry.members[memberIdx].isPadding;
+
+												uint32_t runEnd = b + 1;
+												while (runEnd < rowEndByte && byteMap[runEnd] == memberIdx)
+													++runEnd;
+
+												float x0 = rowStart.x + labelWidth + (b - rowStartByte) * cellWidth;
+												float x1 = rowStart.x + labelWidth + (runEnd - rowStartByte) * cellWidth;
+												float y0 = rowStart.y + 2.0f;
+												float y1 = rowStart.y + rowHeight - 2.0f;
+
+												ImU32 color = getMemberColor(memberIdx, isPadding);
+												drawList->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1), color, 2.0f);
+												drawList->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), IM_COL32(0, 0, 0, 100), 2.0f);
+
+												if (memberIdx >= 0)
+												{
+													const pdb::MemberEntry& member = selectedEntry.members[memberIdx];
+													float blockWidth = x1 - x0;
+													const char* name = *member.name;
+													ImVec2 textSize = ImGui::CalcTextSize(name);
+													if (textSize.x + 4.0f <= blockWidth)
+													{
+														float tx = x0 + (blockWidth - textSize.x) * 0.5f;
+														float ty = y0 + ((y1 - y0) - textSize.y) * 0.5f;
+														drawList->AddText(ImVec2(tx, ty), IM_COL32(255, 255, 255, 220), name);
+													}
+												}
+
+												b = runEnd;
+											}
+
+											if (selectedCacheLineSize > 0)
+											{
+												for (uint32_t b2 = rowStartByte; b2 < rowEndByte; ++b2)
+												{
+													if (b2 % selectedCacheLineSize == 0 && b2 != rowStartByte)
+													{
+														float x = rowStart.x + labelWidth + (b2 - rowStartByte) * cellWidth;
+														drawList->AddLine(ImVec2(x, rowStart.y), ImVec2(x, rowStart.y + rowHeight), IM_COL32(255, 200, 0, 180), 2.0f);
+													}
+												}
+											}
+
+											drawList->AddRect(
+												ImVec2(rowStart.x + labelWidth, rowStart.y),
+												ImVec2(rowStart.x + labelWidth + (rowEndByte - rowStartByte) * cellWidth, rowStart.y + rowHeight),
+												IM_COL32(60, 60, 60, 255));
+
+											cursor.y += rowHeight;
+										}
+
+										ImVec2 mousePos = ImGui::GetMousePos();
+										ImVec2 layoutStart = ImGui::GetItemRectMin();
+										layoutStart.y += rowHeight;
+
+										if (mousePos.x >= layoutStart.x + labelWidth && mousePos.x < layoutStart.x + totalWidth &&
+											mousePos.y >= layoutStart.y && mousePos.y < layoutStart.y + totalRows * rowHeight)
+										{
+											float relX = mousePos.x - (layoutStart.x + labelWidth);
+											float relY = mousePos.y - layoutStart.y;
+											uint32_t hovRow = (uint32_t)(relY / rowHeight);
+											uint32_t hovCol = (uint32_t)(relX / cellWidth);
+											uint32_t hovByte = (uint32_t)(hovRow * actualBytesPerRow) + hovCol;
+
+											if (hovByte < selectedEntry.size)
+											{
+												int32_t memberIdx = byteMap[hovByte];
+												if (memberIdx >= 0)
+												{
+													const pdb::MemberEntry& member = selectedEntry.members[memberIdx];
+													ImGui::BeginTooltip();
+													ImGui::Text("Name:   %s", *member.name);
+													ImGui::Text("Type:   %s", *member.type);
+													ImGui::Text("Offset: %u", member.offset);
+													ImGui::Text("Size:   %u", member.size);
+													if (selectedCacheLineSize > 0)
+													{
+														int32_t lineStart = member.offset / selectedCacheLineSize;
+														int32_t lineEnd = (member.offset + member.size - 1) / selectedCacheLineSize;
+														if (lineStart != lineEnd)
+															ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "Cache Line: [%d, %d] (straddles!)", lineStart, lineEnd);
+														else
+															ImGui::Text("Cache Line: %d", lineStart);
+													}
+													ImGui::EndTooltip();
+												}
+											}
+										}
+										ImGui::EndTabItem();
+									}
+									ImGui::EndTabBar();
 								}
 
+								
                             }
                         }
                         ImGui::EndChild();

@@ -3370,6 +3370,7 @@ namespace pdb
 		uint64_t index = 0;
 		uint64_t hash = 0;
 		bool hasVirtualBases = false;
+		int32_t alignment = -1;
 	};
 
 	bool operator==(const StructureEntry& a, const StructureEntry& b)
@@ -3676,10 +3677,13 @@ namespace pdb
 		}
 	}
 
+#undef max
+#undef min
+
 	void ouputClassLayoutData(const TArray<TypeRecord>& typeRecords, TArray<StructureEntry>& output)
 	{
 		std::unordered_map<String, uint64_t, StringHasher, StringEqual> classNameOffset;
-
+		std::unordered_map<uint64_t, bool> uniqueMap;
 		LOG("Generating Table");
 
 		for (uint64_t index = 0; index < typeRecords.getNum(); ++index)
@@ -3747,7 +3751,11 @@ namespace pdb
 					}
 
 					entry.hash = hash::hash(entry.name);
-					output.addUnique(entry);
+					if (uniqueMap.find(entry.hash) == uniqueMap.end())
+					{
+						output.add(entry);
+						uniqueMap.insert({ entry.hash, true });
+					}
 				}
 			}
 			else if (record.leaf.type == ELeafType::LEAF_TYPE_UNION && !record.leaf.union_.propertyField.bIsForwardRef)
@@ -3789,7 +3797,11 @@ namespace pdb
 						entry.lineNumber = srcEntry.lineNumber;
 					}
 					entry.hash = hash::hash(entry.name);
-					output.addUnique(entry);
+					if (uniqueMap.find(entry.hash) == uniqueMap.end())
+					{
+						output.add(entry);
+						uniqueMap.insert({ entry.hash, true });
+					}
 				}
 			}
 		}
@@ -3819,8 +3831,7 @@ namespace pdb
 			}
 		}
 
-#undef max
-#undef min
+
 
 		LOG("Calculating Padding");
 		// Add Padding
