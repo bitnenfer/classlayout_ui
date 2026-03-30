@@ -95,11 +95,6 @@ void hyperlink(const char* label, const char* url)
 	}
 }
 
-void renderMemoryLayout(pdb::StructureEntry& entry, int32_t selectedCacheLineSize)
-{
-	
-}
-
 #include "resource.h"
 
 int main()
